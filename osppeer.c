@@ -799,6 +799,7 @@ typedef struct
 typedef struct
 {
     pthread_t thread;
+    int create_fd;
     void* next;
 } pu_prop_node_t;
 
@@ -810,6 +811,8 @@ pupload_worker(void* arg)
 
     // Get the linked list node passed in
     pu_prop_node_t* pu_prop_node = (pu_prop_node_t*)arg;
+
+    pu_prop_node->create_fd = _listen_task->peer_fd;
 
     assert(pu_prop_node->next == NULL);
 
@@ -847,6 +850,8 @@ dispatch_pupload()
     while(prop_list)
     {
         pthread_join(prop_list->thread, NULL);
+
+        close(prop_list->create_fd);
 
         old_prop_list = prop_list;
         prop_list = (pu_prop_node_t*)prop_list->next;
