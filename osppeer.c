@@ -794,6 +794,12 @@ pdownload_worker(void* arg)
 	// Cast the argument to a useful type
 	pd_prop_node_t* pd_prop_node = (pd_prop_node_t*)arg;
 	
+	if(!pd_prop_node->t || !pd_prop_node->tracker_task)
+	{
+		printf("Failed to run task_download: invalid task struct");
+		return NULL;
+	}
+	
 	printf("Started worker %d; pd_prop_node->t->type = %d, pd_prop_node->tracker_task->type %d\n", (int)pd_prop_node->thread,
 	pd_prop_node->t->type, pd_prop_node->tracker_task->type);
 	
@@ -849,8 +855,11 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 	{
 		//free(last_head->t);
 		last_head = head;
+		printf("Freeing worker %d\n", (int)last_head->thread);
+	 
 		head = (pd_prop_node_t*)head->next;
-		free(last_head->tracker_task);
+		if(last_head->tracker_task)
+			task_free(last_head->tracker_task);
 		free(last_head);
 	}
 
