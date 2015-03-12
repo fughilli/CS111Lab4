@@ -114,6 +114,7 @@ static void task_pop_peer(task_t *t)
 {
 	if (t) {
 		// Close the file descriptors and bounded buffer
+		printf("Close peer_fd #%d\n", t->peer_fd);
 		if (t->peer_fd >= 0)
 			close(t->peer_fd);
 		if (t->disk_fd >= 0)
@@ -824,7 +825,10 @@ pupload_worker(void* arg)
 	pthread_create(&next_node->thread, NULL, pupload_worker, next_node);
 
     // Upload the file
+    printf("File is being uploaded...");
     task_upload(t);
+
+
 
     return NULL;
 }
@@ -832,11 +836,12 @@ pupload_worker(void* arg)
 void
 dispatch_pupload()
 {
-    pu_prop_node_t *prop_list, first_node, *old_prop_list;
-    first_node.next = NULL;
-    prop_list = &first_node;
+    pu_prop_node_t *prop_list, *old_prop_list;
 
-    pthread_create(&first_node.thread, NULL, pupload_worker, &first_node);
+    prop_list = (pu_prop_node_t*)malloc(sizeof(pu_prop_node_t));
+    prop_list->next = NULL;
+
+    pthread_create(&prop_list->thread, NULL, pupload_worker, prop_list);
 
     // Run along the linked list and join to the processes
     while(prop_list)
