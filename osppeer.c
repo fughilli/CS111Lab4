@@ -825,6 +825,7 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 		// Get the peer information for the i'th filename
 		head->t = start_download(head->tracker_task, fnames[i]);
 	
+		if(i != fname_cnt-1)
 		// Allocate the next property node and add it to the linked list
 		head = (pd_prop_node_t*)(head->next = malloc(sizeof(pd_prop_node_t)));
 				
