@@ -794,7 +794,8 @@ pdownload_worker(void* arg)
 	// Cast the argument to a useful type
 	pd_prop_node_t* pd_prop_node = (pd_prop_node_t*)arg;
 	
-	printf("Started worker %d\n", (int)pd_prop_node->thread);
+	printf("Started worker %d; pd_prop_node->t->type = %d, pd_prop_node->tracker_task->type %d\n", (int)pd_prop_node->thread,
+	pd_prop_node->t->type, pd_prop_node->tracker_task->type);
 	
 	// Start the download with the given information
 	task_download(pd_prop_node->t, pd_prop_node->tracker_task);
@@ -806,6 +807,8 @@ void
 dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname_cnt)
 {
 	assert(tracker_task->type == TASK_TRACKER);
+
+	printf("Number of files to download: %d\n", (int)fname_cnt);
 	
 	pd_prop_node_t *prop_list, *head;
 	if(!(prop_list = head = (pd_prop_node_t*)malloc(sizeof(pd_prop_node_t))))
