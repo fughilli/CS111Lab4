@@ -78,8 +78,10 @@ typedef struct task {
 } task_t;
 
 void
-dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname_cnt);
+dispatch_pupload();
 
+void
+dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname_cnt);
 
 // task_new(type)
 //	Create and return a new task of type 'type'.
@@ -376,6 +378,7 @@ task_t *start_listen(void)
 
 	// If we get here, we tried about 200 ports without finding an
 	// available port.  Give up.
+	// TODO: make this behave differently when listening ports are exhausted; return NULL?
 	die("Tried ~200 ports without finding an open port, giving up.\n");
 
     bound:
@@ -775,34 +778,92 @@ int main(int argc, char *argv[])
 	//}
 
 	// Then accept connections from other peers and upload files to them!
-	while ((t = task_listen(listen_task)))
-		task_upload(t);
+//	while ((t = task_listen(listen_task)))
+//	{
+//        printf("A connection! Yay!\n");
+//		task_upload(t);
+//    }
+    dispatch_pupload();
 
 	return 0;
 }
 
-typedef struct 
+typedef struct
 {
 	task_t *tracker_task, *t;
 	pthread_t thread;
 	void* next;
 } pd_prop_node_t;
 
+typedef struct
+{
+    pthread_t thread;
+    void* next;
+} pu_prop_node_t;
+
+void*
+pupload_worker(void* arg)
+{
+    // Obtain a port to listen on
+    task_t *t, *_listen_task = start_listen();
+
+    // Get the linked list node passed in
+    pu_prop_node_t* pu_prop_node = (pu_prop_node_t*)arg;
+
+    assert(pu_prop_node->next == NULL);
+
+    pu_prop_node->next = malloc(sizeof(pu_prop_node_t));
+    pu_prop_node_t* next_node = (pu_prop_node_t*)pu_prop_node->next;
+    next_node->next = NULL;
+
+    // Attempt to open the socket
+	t = task_listen(_listen_task);
+
+    // Socket has been opened; there is a client. Create another
+    //  worker to handle more requests
+	pthread_create(&next_node->thread, NULL, pupload_worker, next_node);
+
+    // Upload the file
+    task_upload(t);
+
+    return NULL;
+}
+
+void
+dispatch_pupload()
+{
+    pu_prop_node_t *prop_list, first_node, *old_prop_list;
+    first_node.next = NULL;
+    prop_list = &first_node;
+
+    pthread_create(&first_node.thread, NULL, pupload_worker, &first_node);
+
+    // Run along the linked list and join to the processes
+    while(prop_list)
+    {
+        pthread_join(prop_list->thread, NULL);
+
+        old_prop_list = prop_list;
+        prop_list = (pu_prop_node_t*)prop_list->next;
+        free(old_prop_list);
+    }
+}
+
 void*
 pdownload_worker(void* arg)
 {
 	// Cast the argument to a useful type
 	pd_prop_node_t* pd_prop_node = (pd_prop_node_t*)arg;
-	
+
 	if(!pd_prop_node->t || !pd_prop_node->tracker_task)
 	{
 //		printf("Failed to run task_download: invalid task struct");
 		return NULL;
 	}
-	
+
 //	printf("Started worker %d; pd_prop_node->t->type = %d, pd_prop_node->tracker_task->type %d\n", (int)pd_prop_node->thread,
 //	pd_prop_node->t->type, pd_prop_node->tracker_task->type);
-	
+
 	// Start the download with the given information
 	task_download(pd_prop_node->t, pd_prop_node->tracker_task);
 
@@ -815,7 +876,7 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 	assert(tracker_task->type == TASK_TRACKER);
 
 //	printf("Number of files to download: %d\n", (int)fname_cnt);
-	
+
 	pd_prop_node_t *prop_list, *head;
 	if(!(prop_list = head = (pd_prop_node_t*)malloc(sizeof(pd_prop_node_t))))
 		die("Failed to allocate parallel download property list node\n");
@@ -830,11 +891,11 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 
 		// Get the peer information for the i'th filename
 		head->t = start_download(head->tracker_task, fnames[i]);
-	
+
 		if(i != fname_cnt-1)
 		// Allocate the next property node and add it to the linked list
 		head = (pd_prop_node_t*)(head->next = malloc(sizeof(pd_prop_node_t)));
-				
+
 	}
 
 	head->next = NULL;
@@ -852,7 +913,7 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 			continue;
 		pthread_join(head->thread, NULL);
 	}
-	
+
 	pd_prop_node_t *last_head;
 	head = prop_list;
 	while(head != NULL)
@@ -860,7 +921,7 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 		//free(last_head->t);
 		last_head = head;
 //		printf("Freeing worker %d\n", (int)last_head->thread);
-	 
+
 		head = (pd_prop_node_t*)head->next;
 		if(last_head->tracker_task)
 			task_free(last_head->tracker_task);
