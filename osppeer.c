@@ -20,6 +20,9 @@
 #include <pwd.h>
 #include <time.h>
 #include <limits.h>
+
+#include <pthread.h>
+
 #include "md5.h"
 #include "osp2p.h"
 
@@ -73,6 +76,9 @@ typedef struct task {
 				// task_pop_peer() removes peers from it, one
 				// at a time, if a peer misbehaves.
 } task_t;
+
+void
+dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname_cnt);
 
 
 // task_new(type)
@@ -759,13 +765,89 @@ int main(int argc, char *argv[])
 	register_files(tracker_task, myalias);
 
 	// First, download files named on command line.
-	for (; argc > 1; argc--, argv++)
-		if ((t = start_download(tracker_task, argv[1])))
-			task_download(t, tracker_task);
+//	for (; argc > 1; argc--, argv++)
+//		if ((t = start_download(tracker_task, argv[1])))
+//			task_download(t, tracker_task);
+
+	//for(; argc > 1; argc--; argv++)
+	//{
+	dispatch_pdownload(tracker_task, (const char**) &argv[1], argc-1);
+	//}
 
 	// Then accept connections from other peers and upload files to them!
 	while ((t = task_listen(listen_task)))
 		task_upload(t);
 
 	return 0;
+}
+
+typedef struct 
+{
+	task_t *tracker_task, *t;
+	pthread_t thread;
+	void* next;
+} pd_prop_node_t;
+
+void*
+pdownload_worker(void* arg)
+{
+	// Cast the argument to a useful type
+	pd_prop_node_t* pd_prop_node = (pd_prop_node_t*)arg;
+	
+	printf("Started worker %d\n", (int)pd_prop_node->thread);
+	
+	// Start the download with the given information
+	task_download(pd_prop_node->t, pd_prop_node->tracker_task);
+
+	return NULL;
+}
+
+void
+dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname_cnt)
+{
+	assert(tracker_task->type == TASK_TRACKER);
+	
+	pd_prop_node_t *prop_list, *head;
+	if(!(prop_list = head = (pd_prop_node_t*)malloc(sizeof(pd_prop_node_t))))
+		die("Failed to allocate parallel download property list node\n");
+
+	// Obtain all of the peer information for each of the files we want sequentially
+	size_t i;
+	for(i = 0; i < fname_cnt; i++)
+	{
+		// Allocate and copy the tracker_task struct into the property node
+		head->tracker_task = (task_t*)malloc(sizeof(task_t));
+		memcpy(head->tracker_task, tracker_task, sizeof(task_t));
+
+		// Get the peer information for the i'th filename
+		head->t = start_download(head->tracker_task, fnames[i]);
+	
+		// Allocate the next property node and add it to the linked list
+		head = (pd_prop_node_t*)(head->next = malloc(sizeof(pd_prop_node_t)));
+				
+	}
+
+	head->next = NULL;
+
+	for(head = prop_list; head != NULL; head = (pd_prop_node_t*)head->next)
+	{
+		pthread_create(&head->thread, NULL, pdownload_worker, (void*) head);
+	}
+
+	for(head = prop_list; head != NULL; head = (pd_prop_node_t*)head->next)
+	{
+		pthread_join(head->thread, NULL);
+	}
+	
+	pd_prop_node_t *last_head;
+	head = prop_list;
+	while(head != NULL)
+	{
+		//free(last_head->t);
+		last_head = head;
+		head = (pd_prop_node_t*)head->next;
+		free(last_head->tracker_task);
+		free(last_head);
+	}
+
 }
