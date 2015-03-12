@@ -796,12 +796,12 @@ pdownload_worker(void* arg)
 	
 	if(!pd_prop_node->t || !pd_prop_node->tracker_task)
 	{
-		printf("Failed to run task_download: invalid task struct");
+//		printf("Failed to run task_download: invalid task struct");
 		return NULL;
 	}
 	
-	printf("Started worker %d; pd_prop_node->t->type = %d, pd_prop_node->tracker_task->type %d\n", (int)pd_prop_node->thread,
-	pd_prop_node->t->type, pd_prop_node->tracker_task->type);
+//	printf("Started worker %d; pd_prop_node->t->type = %d, pd_prop_node->tracker_task->type %d\n", (int)pd_prop_node->thread,
+//	pd_prop_node->t->type, pd_prop_node->tracker_task->type);
 	
 	// Start the download with the given information
 	task_download(pd_prop_node->t, pd_prop_node->tracker_task);
@@ -814,7 +814,7 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 {
 	assert(tracker_task->type == TASK_TRACKER);
 
-	printf("Number of files to download: %d\n", (int)fname_cnt);
+//	printf("Number of files to download: %d\n", (int)fname_cnt);
 	
 	pd_prop_node_t *prop_list, *head;
 	if(!(prop_list = head = (pd_prop_node_t*)malloc(sizeof(pd_prop_node_t))))
@@ -841,11 +841,15 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 
 	for(head = prop_list; head != NULL; head = (pd_prop_node_t*)head->next)
 	{
+		if(!head->t || !head->tracker_task)
+			continue;
 		pthread_create(&head->thread, NULL, pdownload_worker, (void*) head);
 	}
 
 	for(head = prop_list; head != NULL; head = (pd_prop_node_t*)head->next)
 	{
+		if(!head->t || !head->tracker_task)
+			continue;
 		pthread_join(head->thread, NULL);
 	}
 	
@@ -855,7 +859,7 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 	{
 		//free(last_head->t);
 		last_head = head;
-		printf("Freeing worker %d\n", (int)last_head->thread);
+//		printf("Freeing worker %d\n", (int)last_head->thread);
 	 
 		head = (pd_prop_node_t*)head->next;
 		if(last_head->tracker_task)
