@@ -163,35 +163,9 @@ typedef enum taskbufresult {		// Status of a read or write attempt.
 					//    caller should wait.
 } taskbufresult_t;
 
-// read_to_taskbuf(fd, t)
-//	Reads data from 'fd' into 't->buf', t's bounded buffer, either until
-//	't's bounded buffer fills up, or no more data from 't' is available,
-//	whichever comes first.  Return values are TBUF_ constants, above;
-//	generally a return value of TBUF_AGAIN means 'try again later'.
-//	The task buffer is capped at TASKBUFSIZ.
-//taskbufresult_t read_to_taskbuf(int fd, task_t *t)
-//{
-//	unsigned headpos = (t->head % TASKBUFSIZ);
-//	unsigned tailpos = (t->tail % TASKBUFSIZ);
-//	ssize_t amt;
-//
-//	if (t->head == t->tail || headpos < tailpos)
-//		amt = read(fd, &t->buf[tailpos], TASKBUFSIZ - tailpos);
-//	else
-//		amt = read(fd, &t->buf[tailpos], headpos - tailpos);
-//
-//	if (amt == -1 && (errno == EINTR || errno == EAGAIN
-//			  || errno == EWOULDBLOCK))
-//		return TBUF_AGAIN;
-//	else if (amt == -1)
-//		return TBUF_ERROR;
-//	else if (amt == 0)
-//		return TBUF_END;
-//	else {
-//		t->tail += amt;
-//		return TBUF_OK;
-//	}
-//}
+//#define REDEFINITION_READ_WRITE
+
+#ifdef REDEFINITION_READ_WRITE
 
 taskbufresult_t read_to_taskbuf_fixed(int fd, task_t *t)
 {
@@ -253,37 +227,6 @@ done:
 
     return TBUF_OK;
 }
-
-
-// write_from_taskbuf(fd, t)
-//	Writes data from 't' into 't->fd' into 't->buf', using similar
-//	techniques and identical return values as read_to_taskbuf.
-//taskbufresult_t write_from_taskbuf(int fd, task_t *t)
-//{
-//	unsigned headpos = (t->head % TASKBUFSIZ);
-//	unsigned tailpos = (t->tail % TASKBUFSIZ);
-//	ssize_t amt;
-//
-//	if (t->head == t->tail)
-//		return TBUF_END;
-//	else if (headpos < tailpos)
-//		amt = write(fd, &t->buf[headpos], tailpos - headpos);
-//	else
-//		amt = write(fd, &t->buf[headpos], TASKBUFSIZ - headpos);
-//
-//	if (amt == -1 && (errno == EINTR || errno == EAGAIN
-//			  || errno == EWOULDBLOCK))
-//		return TBUF_AGAIN;
-//	else if (amt == -1)
-//		return TBUF_ERROR;
-//	else if (amt == 0)
-//		return TBUF_END;
-//	else {
-//		t->head += amt;
-//		t->total_written += amt;
-//		return TBUF_OK;
-//	}
-//}
 
 taskbufresult_t write_from_taskbuf_fixed(int fd, task_t *t)
 {
@@ -347,6 +290,72 @@ done:
     return TBUF_OK;
 }
 
+#else
+
+#define read_to_taskbuf_fixed read_to_taskbuf
+#define write_from_taskbuf_fixed write_from_taskbuf
+
+// read_to_taskbuf(fd, t)
+//	Reads data from 'fd' into 't->buf', t's bounded buffer, either until
+//	't's bounded buffer fills up, or no more data from 't' is available,
+//	whichever comes first.  Return values are TBUF_ constants, above;
+//	generally a return value of TBUF_AGAIN means 'try again later'.
+//	The task buffer is capped at TASKBUFSIZ.
+taskbufresult_t read_to_taskbuf(int fd, task_t *t)
+{
+	unsigned headpos = (t->head % TASKBUFSIZ);
+	unsigned tailpos = (t->tail % TASKBUFSIZ);
+	ssize_t amt;
+
+	if (t->head == t->tail || headpos < tailpos)
+		amt = read(fd, &t->buf[tailpos], TASKBUFSIZ - tailpos);
+	else
+		amt = read(fd, &t->buf[tailpos], headpos - tailpos);
+
+	if (amt == -1 && (errno == EINTR || errno == EAGAIN
+			  || errno == EWOULDBLOCK))
+		return TBUF_AGAIN;
+	else if (amt == -1)
+		return TBUF_ERROR;
+	else if (amt == 0)
+		return TBUF_END;
+	else {
+		t->tail += amt;
+		return TBUF_OK;
+	}
+}
+
+// write_from_taskbuf(fd, t)
+//	Writes data from 't' into 't->fd' into 't->buf', using similar
+//	techniques and identical return values as read_to_taskbuf.
+taskbufresult_t write_from_taskbuf(int fd, task_t *t)
+{
+	unsigned headpos = (t->head % TASKBUFSIZ);
+	unsigned tailpos = (t->tail % TASKBUFSIZ);
+	ssize_t amt;
+
+	if (t->head == t->tail)
+		return TBUF_END;
+	else if (headpos < tailpos)
+		amt = write(fd, &t->buf[headpos], tailpos - headpos);
+	else
+		amt = write(fd, &t->buf[headpos], TASKBUFSIZ - headpos);
+
+	if (amt == -1 && (errno == EINTR || errno == EAGAIN
+			  || errno == EWOULDBLOCK))
+		return TBUF_AGAIN;
+	else if (amt == -1)
+		return TBUF_ERROR;
+	else if (amt == 0)
+		return TBUF_END;
+	else {
+		t->head += amt;
+		t->total_written += amt;
+		return TBUF_OK;
+	}
+}
+
+#endif
 
 /******************************************************************************
  * NETWORKING FUNCTIONS
