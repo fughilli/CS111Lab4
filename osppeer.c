@@ -765,25 +765,14 @@ int main(int argc, char *argv[])
 
 	// Connect to the tracker and register our files.
 	tracker_task = start_tracker(tracker_addr, tracker_port);
-	listen_task = start_listen();
+
+    // First, download files named on command line.
+	dispatch_pdownload(tracker_task, (const char**) &argv[1], argc-1);
+
+    // Register files after the download so that this peer can immediately seed.
 	register_files(tracker_task, myalias);
 
-	// First, download files named on command line.
-//	for (; argc > 1; argc--, argv++)
-//		if ((t = start_download(tracker_task, argv[1])))
-//			task_download(t, tracker_task);
-
-	//for(; argc > 1; argc--; argv++)
-	//{
-	dispatch_pdownload(tracker_task, (const char**) &argv[1], argc-1);
-	//}
-
 	// Then accept connections from other peers and upload files to them!
-//	while ((t = task_listen(listen_task)))
-//	{
-//        printf("A connection! Yay!\n");
-//		task_upload(t);
-//    }
     dispatch_pupload();
 
 	return 0;
@@ -934,7 +923,13 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 
 		head = (pd_prop_node_t*)head->next;
 		if(last_head->tracker_task)
+		{
+            // Prevent task_free from closing the original tracker_task's file descriptors
+            last_head->tracker_task->disk_fd = -1;
+            last_head->tracker_task->peer_fd = -1;
+
 			task_free(last_head->tracker_task);
+        }
 		free(last_head);
 	}
 
