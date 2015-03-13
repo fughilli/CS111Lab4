@@ -78,7 +78,7 @@ typedef struct task {
 } task_t;
 
 void
-dispatch_pupload();
+dispatch_pupload(task_t* listen_task);
 
 void
 dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname_cnt);
@@ -405,8 +405,16 @@ static void register_files(task_t *tracker_task, const char *myalias)
 	assert(tracker_task->type == TASK_TRACKER);
 
 	// Register address with the tracker.
+//	int fileout = open("./outputtotracker.txt", O_WRONLY | O_EXCL | O_CREAT, 0666);
+
 	osp2p_writef(tracker_task->peer_fd, "ADDR %s %I:%d\n",
 		     myalias, listen_addr, listen_port);
+
+//    osp2p_writef(fileout, "ADDR %s %I:%d\n",
+//		     myalias, listen_addr, listen_port);
+//
+//    close(fileout);
+
 	messagepos = read_tracker_response(tracker_task);
 	message("* Tracker's response to our IP address registration:\n%s",
 		&tracker_task->buf[messagepos]);
@@ -617,6 +625,7 @@ static task_t *task_listen(task_t *listen_task)
 	task_t *t;
 	assert(listen_task->type == TASK_PEER_LISTEN);
 
+    printf("Opened socket on %d\n", (int)peer_addr.sin_port);
 	fd = accept(listen_task->peer_fd,
 		    (struct sockaddr *) &peer_addr, &peer_addrlen);
 	if (fd == -1 && (errno == EINTR || errno == EAGAIN
@@ -769,11 +778,16 @@ int main(int argc, char *argv[])
     // First, download files named on command line.
 	dispatch_pdownload(tracker_task, (const char**) &argv[1], argc-1);
 
+	listen_task = start_listen();
+
     // Register files after the download so that this peer can immediately seed.
 	register_files(tracker_task, myalias);
 
 	// Then accept connections from other peers and upload files to them!
-    dispatch_pupload();
+    dispatch_pupload(listen_task);
+
+    // Release held file descriptors
+    task_free(listen_task);
 
 	return 0;
 }
@@ -788,29 +802,27 @@ typedef struct
 typedef struct
 {
     pthread_t thread;
-    int create_fd;
+    task_t* listen_task;
     void* next;
 } pu_prop_node_t;
 
 void*
 pupload_worker(void* arg)
 {
-    // Obtain a port to listen on
-    task_t *t, *_listen_task = start_listen();
+    task_t *t;
 
     // Get the linked list node passed in
     pu_prop_node_t* pu_prop_node = (pu_prop_node_t*)arg;
-
-    pu_prop_node->create_fd = _listen_task->peer_fd;
 
     assert(pu_prop_node->next == NULL);
 
     pu_prop_node->next = malloc(sizeof(pu_prop_node_t));
     pu_prop_node_t* next_node = (pu_prop_node_t*)pu_prop_node->next;
+    next_node->listen_task = pu_prop_node->listen_task;
     next_node->next = NULL;
 
     // Attempt to open the socket
-	t = task_listen(_listen_task);
+	t = task_listen(pu_prop_node->listen_task);
 
     // Socket has been opened; there is a client. Create another
     //  worker to handle more requests
@@ -826,11 +838,12 @@ pupload_worker(void* arg)
 }
 
 void
-dispatch_pupload()
+dispatch_pupload(task_t* listen_task)
 {
     pu_prop_node_t *prop_list, *old_prop_list;
 
     prop_list = (pu_prop_node_t*)malloc(sizeof(pu_prop_node_t));
+    prop_list->listen_task = listen_task;
     prop_list->next = NULL;
 
     pthread_create(&prop_list->thread, NULL, pupload_worker, prop_list);
@@ -839,8 +852,6 @@ dispatch_pupload()
     while(prop_list)
     {
         pthread_join(prop_list->thread, NULL);
-
-        close(prop_list->create_fd);
 
         old_prop_list = prop_list;
         prop_list = (pu_prop_node_t*)prop_list->next;
