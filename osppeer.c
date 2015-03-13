@@ -20,6 +20,7 @@
 #include <pwd.h>
 #include <time.h>
 #include <limits.h>
+#include <stdbool.h>
 
 #include <pthread.h>
 
@@ -633,6 +634,87 @@ static task_t *task_listen(task_t *listen_task)
 	return t;
 }
 
+int
+count_occurences(const char* buf, int bufsize, const char* sstr, int sstrsize)
+{
+    if(sstrsize == 0)
+        return 0;
+
+    if(sstrsize < 0)
+        sstrsize = strlen(sstr);
+
+    if(bufsize < 0)
+        bufsize = strlen(buf);
+
+    int ret = 0;
+
+    int offset;
+    for(offset = 0; offset < bufsize-(sstrsize-1); offset++)
+    {
+        if(memcmp(buf+offset, sstr, sstrsize) == 0)
+        {
+            offset += (sstrsize-1);
+            ret++;
+        }
+    }
+
+    return ret;
+}
+
+// Check a filename (with its path) for shenanigans.
+// Returns false if the path is absolute, not null-terminated,
+// or if it ever pops above ./
+bool
+check_filename(const char* fname)
+{
+    // Check for null-termination
+    bool has_end = false;
+    int i;
+    for(i = 0; i < FILENAMESIZ; i++)
+    {
+        if(fname[i] == 0)
+        {
+            has_end = true;
+            break;
+        }
+    }
+
+    if(!has_end)
+        return false;
+
+    // Check for absolute path
+    if(fname[0] == '/')
+        return false;
+
+    // Check for going up out of the directory
+    if(memcmp(fname, "../", 3) == 0)
+        return false;
+
+    int dir_level = 0;
+    for(i = 0; (i < FILENAMESIZ) && (fname[i] != 0); i++)
+    {
+        if(memcmp(fname + i, "./", 2) == 0)
+        {
+            i += 1;
+        }
+        else if(memcmp(fname + i, "../", 3) == 0)
+        {
+            i += 2;
+            dir_level--;
+        }
+        else if(fname[i] == '/')
+        {
+            if(!((i >= 1) && (fname[i-1] == '/')))
+                dir_level++;
+        }
+
+        // NO! GTFO!
+        if(dir_level < 0)
+            return false;
+    }
+
+    return true;
+}
 
 // task_upload(t)
 //	Handles an upload request from another peer.
@@ -658,6 +740,11 @@ static void task_upload(task_t *t)
 		goto exit;
 	}
 	t->head = t->tail = 0;
+
+	if(!check_filename(t->filename)) {
+        error("* Bad filename %s", t->filename);
+        goto exit;
+    }
 
 	t->disk_fd = open(t->filename, O_RDONLY);
 	if (t->disk_fd == -1) {
