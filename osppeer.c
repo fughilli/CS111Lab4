@@ -65,6 +65,7 @@ typedef struct task {
 	char buf[TASKBUFSIZ];	// Bounded buffer abstraction
 	unsigned head;
 	unsigned tail;
+	bool full;              // Solves ambiguity with head==tail
 	size_t total_written;	// Total number of bytes written
 				// by write_to_taskbuf
 
@@ -98,6 +99,7 @@ static task_t *task_new(tasktype_t type)
 	t->type = type;
 	t->peer_fd = t->disk_fd = -1;
 	t->head = t->tail = 0;
+	t->full = false;
 	t->total_written = 0;
 	t->peer_list = NULL;
 
@@ -121,6 +123,7 @@ static void task_pop_peer(task_t *t)
 			close(t->disk_fd);
 		t->peer_fd = t->disk_fd = -1;
 		t->head = t->tail = 0;
+		t->full = false;
 		t->total_written = 0;
 		t->disk_filename[0] = '\0';
 
@@ -166,59 +169,182 @@ typedef enum taskbufresult {		// Status of a read or write attempt.
 //	whichever comes first.  Return values are TBUF_ constants, above;
 //	generally a return value of TBUF_AGAIN means 'try again later'.
 //	The task buffer is capped at TASKBUFSIZ.
-taskbufresult_t read_to_taskbuf(int fd, task_t *t)
+//taskbufresult_t read_to_taskbuf(int fd, task_t *t)
+//{
+//	unsigned headpos = (t->head % TASKBUFSIZ);
+//	unsigned tailpos = (t->tail % TASKBUFSIZ);
+//	ssize_t amt;
+//
+//	if (t->head == t->tail || headpos < tailpos)
+//		amt = read(fd, &t->buf[tailpos], TASKBUFSIZ - tailpos);
+//	else
+//		amt = read(fd, &t->buf[tailpos], headpos - tailpos);
+//
+//	if (amt == -1 && (errno == EINTR || errno == EAGAIN
+//			  || errno == EWOULDBLOCK))
+//		return TBUF_AGAIN;
+//	else if (amt == -1)
+//		return TBUF_ERROR;
+//	else if (amt == 0)
+//		return TBUF_END;
+//	else {
+//		t->tail += amt;
+//		return TBUF_OK;
+//	}
+//}
+
+taskbufresult_t read_to_taskbuf_fixed(int fd, task_t *t)
 {
-	unsigned headpos = (t->head % TASKBUFSIZ);
-	unsigned tailpos = (t->tail % TASKBUFSIZ);
-	ssize_t amt;
+    t->head = (t->head % TASKBUFSIZ);
+    t->tail = (t->tail % TASKBUFSIZ);
+    ssize_t amt = 0, amt2 = 0;
 
-	if (t->head == t->tail || headpos < tailpos)
-		amt = read(fd, &t->buf[tailpos], TASKBUFSIZ - tailpos);
-	else
-		amt = read(fd, &t->buf[tailpos], headpos - tailpos);
+    // Buffer is full; can't do much else
+    if(t->tail == t->head && t->full)
+        return TBUF_END;
 
-	if (amt == -1 && (errno == EINTR || errno == EAGAIN
-			  || errno == EWOULDBLOCK))
-		return TBUF_AGAIN;
-	else if (amt == -1)
-		return TBUF_ERROR;
-	else if (amt == 0)
-		return TBUF_END;
-	else {
-		t->tail += amt;
-		return TBUF_OK;
-	}
+    if(t->tail < t->head)
+    {
+        amt += read(fd, &t->buf[t->tail], t->head - t->tail);
+
+        if (amt == -1 && (errno == EINTR || errno == EAGAIN
+        || errno == EWOULDBLOCK))
+            return TBUF_AGAIN;
+        else if(amt == -1)
+            return TBUF_ERROR;
+        else if(amt == 0)
+            return TBUF_END;
+    }
+
+    if(t->tail >= t->head)
+    {
+        if(TASKBUFSIZ - t->tail)
+            amt += read(fd, &t->buf[t->tail], TASKBUFSIZ - t->tail);
+
+        if (amt == -1 && (errno == EINTR || errno == EAGAIN
+        || errno == EWOULDBLOCK))
+            return TBUF_AGAIN;
+        else if(amt == -1)
+            return TBUF_ERROR;
+        else if(amt == 0)
+            return TBUF_END;
+
+        if(amt < (ssize_t)(TASKBUFSIZ - t->tail))
+            goto done;
+
+        if(t->head)
+            amt2 += read(fd, &t->buf[0], t->head);
+
+        if (amt2 == -1 && (errno == EINTR || errno == EAGAIN
+        || errno == EWOULDBLOCK))
+            return TBUF_AGAIN;
+        else if(amt2 == -1)
+            return TBUF_ERROR;
+        else if(amt2 == 0)
+            return TBUF_END;
+    }
+
+    amt += amt2;
+
+done:
+
+    t->tail = (t->tail + amt) % TASKBUFSIZ;
+    t->full = t->tail == t->head;
+
+    return TBUF_OK;
 }
 
 
 // write_from_taskbuf(fd, t)
 //	Writes data from 't' into 't->fd' into 't->buf', using similar
 //	techniques and identical return values as read_to_taskbuf.
-taskbufresult_t write_from_taskbuf(int fd, task_t *t)
+//taskbufresult_t write_from_taskbuf(int fd, task_t *t)
+//{
+//	unsigned headpos = (t->head % TASKBUFSIZ);
+//	unsigned tailpos = (t->tail % TASKBUFSIZ);
+//	ssize_t amt;
+//
+//	if (t->head == t->tail)
+//		return TBUF_END;
+//	else if (headpos < tailpos)
+//		amt = write(fd, &t->buf[headpos], tailpos - headpos);
+//	else
+//		amt = write(fd, &t->buf[headpos], TASKBUFSIZ - headpos);
+//
+//	if (amt == -1 && (errno == EINTR || errno == EAGAIN
+//			  || errno == EWOULDBLOCK))
+//		return TBUF_AGAIN;
+//	else if (amt == -1)
+//		return TBUF_ERROR;
+//	else if (amt == 0)
+//		return TBUF_END;
+//	else {
+//		t->head += amt;
+//		t->total_written += amt;
+//		return TBUF_OK;
+//	}
+//}
+
+taskbufresult_t write_from_taskbuf_fixed(int fd, task_t *t)
 {
-	unsigned headpos = (t->head % TASKBUFSIZ);
-	unsigned tailpos = (t->tail % TASKBUFSIZ);
-	ssize_t amt;
+    t->head = (t->head % TASKBUFSIZ);
+    t->tail = (t->tail % TASKBUFSIZ);
+    ssize_t amt = 0, amt2 = 0;
 
-	if (t->head == t->tail)
-		return TBUF_END;
-	else if (headpos < tailpos)
-		amt = write(fd, &t->buf[headpos], tailpos - headpos);
-	else
-		amt = write(fd, &t->buf[headpos], TASKBUFSIZ - headpos);
+    // Buffer is empty; can't do much else
+    if(t->tail == t->head && !t->full)
+        return TBUF_END;
 
-	if (amt == -1 && (errno == EINTR || errno == EAGAIN
-			  || errno == EWOULDBLOCK))
-		return TBUF_AGAIN;
-	else if (amt == -1)
-		return TBUF_ERROR;
-	else if (amt == 0)
-		return TBUF_END;
-	else {
-		t->head += amt;
-		t->total_written += amt;
-		return TBUF_OK;
-	}
+    if(t->head < t->tail)
+    {
+        amt += write(fd, &t->buf[t->head], t->tail - t->head);
+
+        if (amt == -1 && (errno == EINTR || errno == EAGAIN
+        || errno == EWOULDBLOCK))
+            return TBUF_AGAIN;
+        else if(amt == -1)
+            return TBUF_ERROR;
+        else if(amt == 0)
+            return TBUF_END;
+    }
+
+    if(t->head >= t->tail)
+    {
+        if(TASKBUFSIZ - t->head)
+            amt += write(fd, &t->buf[t->head], TASKBUFSIZ - t->head);
+
+        if (amt == -1 && (errno == EINTR || errno == EAGAIN
+        || errno == EWOULDBLOCK))
+            return TBUF_AGAIN;
+        else if(amt == -1)
+            return TBUF_ERROR;
+        else if(amt == 0)
+            return TBUF_END;
+
+        if(amt < (ssize_t)(TASKBUFSIZ - t->head))
+            goto done;
+
+        if(t->tail)
+            amt2 += write(fd, &t->buf[0], t->tail);
+
+        if (amt2 == -1 && (errno == EINTR || errno == EAGAIN
+        || errno == EWOULDBLOCK))
+            return TBUF_AGAIN;
+        else if(amt2 == -1)
+            return TBUF_ERROR;
+        else if(amt2 == 0)
+            return TBUF_END;
+    }
+
+    amt += amt2;
+
+done:
+
+    t->total_written += amt;
+    t->head = (t->head + amt) % TASKBUFSIZ;
+    t->full = !(t->tail == t->head);
+
+    return TBUF_OK;
 }
 
 
@@ -317,7 +443,7 @@ static size_t read_tracker_response(task_t *t)
 
 		// If not, read more data.  Note that the read will not block
 		// unless NO data is available.
-		int ret = read_to_taskbuf(t->peer_fd, t);
+		int ret = read_to_taskbuf_fixed(t->peer_fd, t);
 		if (ret == TBUF_ERROR)
 			die("tracker read error");
 		else if (ret == TBUF_END)
@@ -460,6 +586,7 @@ static peer_t *parse_peer(const char *s, size_t len)
 	return NULL;
 }
 
+#define PEER_LBUF_SIZ (2048)
 
 // start_download(tracker_task, filename)
 //	Return a TASK_DOWNLOAD task for downloading 'filename' from peers.
@@ -476,30 +603,82 @@ task_t *start_download(task_t *tracker_task, const char *filename)
 	message("* Finding peers for '%s'\n", filename);
 
 	osp2p_writef(tracker_task->peer_fd, "WANT %s\n", filename);
-	messagepos = read_tracker_response(tracker_task);
-	if (tracker_task->buf[messagepos] != '2') {
-		error("* Tracker error message while requesting '%s':\n%s",
-		      filename, &tracker_task->buf[messagepos]);
-		goto exit;
-	}
 
-	if (!(t = task_new(TASK_DOWNLOAD))) {
+    char* peerlistbuf = (char*)malloc(PEER_LBUF_SIZ);
+    ssize_t readbytes = 0;
+
+    if (!(t = task_new(TASK_DOWNLOAD))) {
 		error("* Error while allocating task");
 		goto exit;
 	}
 	strcpy(t->filename, filename);
+    char* nlpos = NULL;
+    while(1)
+    {
+        ssize_t rval = read(tracker_task->peer_fd, peerlistbuf + readbytes, PEER_LBUF_SIZ - readbytes);
 
-	// add peers
-	s1 = tracker_task->buf;
-	while ((s2 = memchr(s1, '\n', (tracker_task->buf + messagepos) - s1))) {
-		if (!(p = parse_peer(s1, s2 - s1)))
-			die("osptracker responded to WANT command with unexpected format!\n");
-		p->next = t->peer_list;
-		t->peer_list = p;
-		s1 = s2 + 1;
-	}
-	if (s1 != tracker_task->buf + messagepos)
-		die("osptracker's response to WANT has unexpected format!\n");
+        if(rval == -1)
+            die("failed to read peer info");
+
+        readbytes += rval;
+
+        do
+        {
+        printf("%.*s\nReadbytes: %d\n", readbytes, peerlistbuf, readbytes);
+
+        nlpos = memchr(peerlistbuf, '\n', readbytes);
+        if(nlpos == NULL)
+            break;
+        printf("nlpos diff: %d\n", (int)(nlpos - peerlistbuf));
+        if(
+            isdigit(peerlistbuf[0]) &&
+            isdigit(peerlistbuf[1]) &&
+            isdigit(peerlistbuf[2]) &&
+            isspace(peerlistbuf[3]))
+        {
+            goto exit;
+        }
+
+        if(!(p = parse_peer(peerlistbuf, nlpos - peerlistbuf)))
+        {
+            task_free(t);
+            die("osptracker responded to WANT command with unexpected format!\n");
+        }
+
+        printf("alias: %s\n", p->alias);
+        p->next = t->peer_list;
+        t->peer_list = p;
+
+        readbytes -= (nlpos - peerlistbuf + 1);
+
+
+        memmove(peerlistbuf, nlpos + 1, readbytes);
+        }while(nlpos != NULL);
+    }
+//	messagepos = read_tracker_response(tracker_task);
+//	if (tracker_task->buf[messagepos] != '2') {
+//		error("* Tracker error message while requesting '%s':\n%s",
+//		      filename, &tracker_task->buf[messagepos]);
+//		goto exit;
+//	}
+//
+//	if (!(t = task_new(TASK_DOWNLOAD))) {
+//		error("* Error while allocating task");
+//		goto exit;
+//	}
+//	strcpy(t->filename, filename);
+//
+//	// add peers
+//	s1 = tracker_task->buf;
+//	while ((s2 = memchr(s1, '\n', (tracker_task->buf + messagepos) - s1))) {
+//		if (!(p = parse_peer(s1, s2 - s1)))
+//			die("osptracker responded to WANT command with unexpected format!\n");
+//		p->next = t->peer_list;
+//		t->peer_list = p;
+//		s1 = s2 + 1;
+//	}
+//	if (s1 != tracker_task->buf + messagepos)
+//		die("osptracker's response to WANT has unexpected format!\n");
 
  exit:
 	return t;
@@ -567,7 +746,7 @@ static void task_download(task_t *t, task_t *tracker_task)
 	// Read the file into the task buffer from the peer,
 	// and write it from the task buffer onto disk.
 	while (1) {
-		int ret = read_to_taskbuf(t->peer_fd, t);
+		int ret = read_to_taskbuf_fixed(t->peer_fd, t);
 		if (ret == TBUF_ERROR) {
 			error("* Peer read error");
 			goto try_again;
@@ -575,7 +754,7 @@ static void task_download(task_t *t, task_t *tracker_task)
 			/* End of file */
 			break;
 
-		ret = write_from_taskbuf(t->disk_fd, t);
+		ret = write_from_taskbuf_fixed(t->disk_fd, t);
 		if (ret == TBUF_ERROR) {
 			error("* Disk write error");
 			goto try_again;
@@ -725,7 +904,7 @@ static void task_upload(task_t *t)
 	assert(t->type == TASK_UPLOAD);
 	// First, read the request from the peer.
 	while (1) {
-		int ret = read_to_taskbuf(t->peer_fd, t);
+		int ret = read_to_taskbuf_fixed(t->peer_fd, t);
 		if (ret == TBUF_ERROR) {
 			error("* Cannot read from connection");
 			goto exit;
@@ -755,13 +934,13 @@ static void task_upload(task_t *t)
 	message("* Transferring file %s\n", t->filename);
 	// Now, read file from disk and write it to the requesting peer.
 	while (1) {
-		int ret = write_from_taskbuf(t->peer_fd, t);
+		int ret = write_from_taskbuf_fixed(t->peer_fd, t);
 		if (ret == TBUF_ERROR) {
 			error("* Peer write error");
 			goto exit;
 		}
 
-		ret = read_to_taskbuf(t->disk_fd, t);
+		ret = read_to_taskbuf_fixed(t->disk_fd, t);
 		if (ret == TBUF_ERROR) {
 			error("* Disk read error");
 			goto exit;
