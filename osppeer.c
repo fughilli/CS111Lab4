@@ -114,7 +114,6 @@ static void task_pop_peer(task_t *t)
 {
 	if (t) {
 		// Close the file descriptors and bounded buffer
-		printf("Close peer_fd #%d\n", t->peer_fd);
 		if (t->peer_fd >= 0)
 			close(t->peer_fd);
 		if (t->disk_fd >= 0)
@@ -405,15 +404,8 @@ static void register_files(task_t *tracker_task, const char *myalias)
 	assert(tracker_task->type == TASK_TRACKER);
 
 	// Register address with the tracker.
-//	int fileout = open("./outputtotracker.txt", O_WRONLY | O_EXCL | O_CREAT, 0666);
-
 	osp2p_writef(tracker_task->peer_fd, "ADDR %s %I:%d\n",
 		     myalias, listen_addr, listen_port);
-
-//    osp2p_writef(fileout, "ADDR %s %I:%d\n",
-//		     myalias, listen_addr, listen_port);
-//
-//    close(fileout);
 
 	messagepos = read_tracker_response(tracker_task);
 	message("* Tracker's response to our IP address registration:\n%s",
@@ -625,7 +617,6 @@ static task_t *task_listen(task_t *listen_task)
 	task_t *t;
 	assert(listen_task->type == TASK_PEER_LISTEN);
 
-    printf("Opened socket on %d\n", (int)peer_addr.sin_port);
 	fd = accept(listen_task->peer_fd,
 		    (struct sockaddr *) &peer_addr, &peer_addrlen);
 	if (fd == -1 && (errno == EINTR || errno == EAGAIN
@@ -867,12 +858,8 @@ pdownload_worker(void* arg)
 
 	if(!pd_prop_node->t || !pd_prop_node->tracker_task)
 	{
-//		printf("Failed to run task_download: invalid task struct");
 		return NULL;
 	}
-
-//	printf("Started worker %d; pd_prop_node->t->type = %d, pd_prop_node->tracker_task->type %d\n", (int)pd_prop_node->thread,
-//	pd_prop_node->t->type, pd_prop_node->tracker_task->type);
 
 	// Start the download with the given information
 	task_download(pd_prop_node->t, pd_prop_node->tracker_task);
@@ -928,9 +915,7 @@ dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname
 	head = prop_list;
 	while(head != NULL)
 	{
-		//free(last_head->t);
 		last_head = head;
-//		printf("Freeing worker %d\n", (int)last_head->thread);
 
 		head = (pd_prop_node_t*)head->next;
 		if(last_head->tracker_task)
