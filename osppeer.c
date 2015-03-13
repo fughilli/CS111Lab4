@@ -624,12 +624,9 @@ task_t *start_download(task_t *tracker_task, const char *filename)
 
         do
         {
-        printf("%.*s\nReadbytes: %d\n", readbytes, peerlistbuf, readbytes);
-
         nlpos = memchr(peerlistbuf, '\n', readbytes);
         if(nlpos == NULL)
             break;
-        printf("nlpos diff: %d\n", (int)(nlpos - peerlistbuf));
         if(
             isdigit(peerlistbuf[0]) &&
             isdigit(peerlistbuf[1]) &&
@@ -644,8 +641,6 @@ task_t *start_download(task_t *tracker_task, const char *filename)
             task_free(t);
             die("osptracker responded to WANT command with unexpected format!\n");
         }
-
-        printf("alias: %s\n", p->alias);
         p->next = t->peer_list;
         t->peer_list = p;
 
