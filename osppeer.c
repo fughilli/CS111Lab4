@@ -633,6 +633,12 @@ task_t *start_download(task_t *tracker_task, const char *filename)
             isdigit(peerlistbuf[2]) &&
             isspace(peerlistbuf[3]))
         {
+            if(peerlistbuf[0] != '2')
+            {
+                peerlistbuf[PEER_LBUF_SIZ-1] = 0;
+                error("* Tracker error message while requesting '%s':\n%s",
+		      filename, &peerlistbuf);
+            }
             goto exit;
         }
 
@@ -909,7 +915,10 @@ static void task_upload(task_t *t)
 	}
 
 	assert(t->head == 0);
-	if (osp2p_snscanf(t->buf, t->tail, "GET %s OSP2P\n", t->filename) < 0) {
+	size_t max_buffer_size = FILENAMESIZ-1+strlen("GET  OSP2P\n");
+	if(t->tail < max_buffer_size)
+        max_buffer_size = t->tail;
+	if (osp2p_snscanf(t->buf, max_buffer_size, "GET %s OSP2P\n", t->filename) < 0) {
 		error("* Odd request %.*s\n", t->tail, t->buf);
 		goto exit;
 	}
