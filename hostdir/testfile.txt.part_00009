@@ -1,0 +1,5 @@
+n parallel and multiple uploads in parallel. This is a fairly open-ended problem. You may choose to implement the concurrency by forking processes (like your shell in lab 1), or by using threads. You can also implement parallel downloads and uploads using non-blocking I/O and an event-driven style. Event-driven programming is the most challenging programming style for this lab, but frequently event-driven programs both run faster and use fewer resources than other programming styles. If you are a real performance junkie try events. (We have a description of event-driven programming here. You might also want to try using an event-driven programming library, such as libevent or Tamer.)
+
+Your client may process downloads in parallel with uploads, or it may processes downloads in parallel and then, once all downloads are done, processes uploads in parallel. Either approach is acceptable.
+
+No matter which approach you choose, you must ensure that your code does not spin (busy-wait -- wait with poor utilization). In particular, when your client is not downloading or uploading, it should be using very little CPU time. Even when it is uploading or dow

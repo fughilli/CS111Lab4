@@ -1,0 +1,11 @@
+ot tell what those files' true names are, and peer 1 cannot download their data -- encrypted or not -- from peer 2.)
+
+Minimizing Bandwidth When Sharing
+
+(Note: this is the most difficult design problem and requires significant implementation)
+
+Bandwidth is an important consideration for peers that pay per byte when uploading. Our current implementation ignores how much it uploads which could be costly when running on such a service. One way to address this problem is by minimizing the number of bytes sent when transmitting groups of files, while still guaranteeing that all files have been sent. BitTorrent-like networks can minimize any individual peer's upload bandwidth by attempting to spread upload requests over the whole network.
+
+For example, say that peer 1 has files "cat1.jpg", "cat2.jpg", and "cat3.jpg", whereupon peers 2-5 log in and attempt to download these 3 files. In our current system, all of peers 2-5 might attempt to download all 3 files from peer 1! Peer 1 wastes a lot of upload bandwidth, uploading each file 4 times. Alternately, what if the peers spread their uploads? Here's an example of how this might work.
+
+    Peer 1 uplo

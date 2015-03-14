@@ -1,0 +1,10 @@
+ory containing osppeer.c. (Note that our current peer actually already supports primitive access control! How??)
+
+Design an access control syntax for our peers. Will you support Apache-style .htaccess files, or something else? What type of syntax will you support? For full credit, you should design a very flexible access control syntax. Consider such issues as limiting access for some files to limited sets of peers, defined based on (say) network address; symbolic links; and so forth.
+Transmitting Encrypted Files
+
+Extend our current design to allow peers to send encrypted data. You should consider three types of encryption. In increasing order of safety:
+
+    Hiding file contents from network snoopers.
+    Hiding file contents from unauthorized peers. I.e., if a peer does not know the right key(s), then the peer will not be able to understand a download file.
+    Hiding the existence of a file from unauthorized peers. I.e., if peer 1 does not know the right key(s), then peer 1 cannot tell which files peer 2 has made available. (Perhaps peer 1 will be able to tell that peer 2 has registered 5 files with weird gobbledegook names, but peer 1 cann

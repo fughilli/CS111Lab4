@@ -1,7 +1,7 @@
 CC	= gcc
 CFLAGS	= -g -W -Wall -Werror -Wno-unused
 V	= @
-LIBS	= -lpthread
+LIBS	= -lpthread -lcrypto -lssl
 
 # Uncomment the following line to run on Solaris machines.
 #LIBS	+= -lsocket -lnsl -lresolv
@@ -71,9 +71,9 @@ tarball: tarballdir
 	$(V)gzip $(DISTDIR).tar
 	$(V)/bin/rm -rf $(DISTDIR)
 
-osppeer: osppeer.o md5.o writescan.o
+osppeer: osppeer.o md5.o writescan.o reconstruct.o
 	@echo + ld osppeer
-	$(V)$(CC) $(CFLAGS) -o $@ osppeer.o md5.o writescan.o $(LIBS)
+	$(V)$(CC) $(CFLAGS) -o $@ osppeer.o md5.o writescan.o reconstruct.o $(LIBS)
 
 
 .PHONY: all always clean distclean tarball tarballdir-nocheck tarballdir \

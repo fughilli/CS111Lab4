@@ -1,0 +1,21 @@
+nes.
+
+Solaris notes: To run the lab on SEASnet Solaris machines, you will need to edit the GNUmakefile and remove the # sign from the #LIBS line near the top of the file. You will also need to use the gmake program, not make; for example, gmake run-good.
+Investigating the OSP2P Protocol
+
+We recommend that you first play around with the OSP2P protocol by running our peer, and by using the telnet program to talk directly to our trackers and peers.
+
+First, run make run-good. This will build our peer, start it and connect to the good tracker, and download three files into the test/ directory, cat1.jpg, cat2.jpg, and cat3.jpg. Here's what we see.
+
++ ./osppeer -dtest -t11112 cat1.jpg cat2.jpg cat3.jpg
+* Tracker's greeting:
+200-Welcome to the OSP2P tracker!
+200-You will be timed out after 600 seconds of inactivity.
+200 Try 'HELP' to get a list of commands.
+* Listening on port 11112
+* Tracker's response to our IP address registration:
+220-This tracker is set up to ignore external peers,
+220-so that you don't have to worry about problems caused by other students.
+220 The address registration has been ignored.
+* Registering our files with tracker
+* Find

@@ -24,10 +24,14 @@
 
 #include <pthread.h>
 
+#include "reconstruct.h"
+
 #include "md5.h"
 #include "osp2p.h"
 
 int evil_mode;			// nonzero iff this peer should behave badly
+int parallel_mode;
+int seed_mode;
 
 static struct in_addr listen_addr;	// Define listening endpoint
 static int listen_port;
@@ -103,6 +107,9 @@ dispatch_pupload(task_t* listen_task);
 
 void
 dispatch_pdownload(const task_t* tracker_task, const char** fnames, size_t fname_cnt);
+
+void
+dispatch_ppdownload(const task_t* tracker_task, const char** fnames, size_t fname_cnt);
 
 // task_new(type)
 //	Create and return a new task of type 'type'.
@@ -1037,6 +1044,8 @@ int main(int argc, char *argv[])
 	const char *myalias;
 	struct passwd *pwent;
 
+	parallel_mode = seed_mode = 0;
+
 	// Default tracker is read.cs.ucla.edu
 	osp2p_sscanf("131.179.80.139:11111", "%I:%d",
 		     &tracker_addr, &tracker_port);
@@ -1090,7 +1099,15 @@ int main(int argc, char *argv[])
 		evil_mode = 1;
 		--argc, ++argv;
 		goto argprocess;
-	} else if (argc >= 2 && (strcmp(argv[1], "--help") == 0
+	} else if (argc >= 2 && strcmp(argv[1], "-p") == 0) {
+        parallel_mode = 1;
+        --argc, ++argv;
+        goto argprocess;
+	}else if (argc >= 2 && strcmp(argv[1], "-s") == 0) {
+        seed_mode = 1;
+        --argc, ++argv;
+        goto argprocess;
+	}else if (argc >= 2 && (strcmp(argv[1], "--help") == 0
 				 || strcmp(argv[1], "-h") == 0)) {
 		printf("Usage: osppeer [-tADDR:PORT | -tPORT] [-dDIR] [-b]\n"
 "Options: -tADDR:PORT  Set tracker address and/or port.\n"
@@ -1101,23 +1118,32 @@ int main(int argc, char *argv[])
 
     if(!evil_mode)
     {
-	// Connect to the tracker and register our files.
-	tracker_task = start_tracker(tracker_addr, tracker_port);
+        // Connect to the tracker and register our files.
+        tracker_task = start_tracker(tracker_addr, tracker_port);
+        if(!parallel_mode)
+        {
+            if(!seed_mode)
+            {
+                // First, download files named on command line.
+                dispatch_pdownload(tracker_task, (const char**) &argv[1], argc-1);
+            }
+        }
+        else
+        {
+            dispatch_ppdownload(tracker_task, (const char**) &argv[1], argc-1);
+        }
 
-    // First, download files named on command line.
-	dispatch_pdownload(tracker_task, (const char**) &argv[1], argc-1);
+        listen_task = start_listen();
 
-	listen_task = start_listen();
+        // Register files after the download so that this peer can immediately seed.
+        register_files(tracker_task, myalias);
 
-    // Register files after the download so that this peer can immediately seed.
-	register_files(tracker_task, myalias);
+        // Then accept connections from other peers and upload files to them!
+        while(1)
+            dispatch_pupload(listen_task);
 
-	// Then accept connections from other peers and upload files to them!
-	while(1)
-        dispatch_pupload(listen_task);
-
-    // Release held file descriptors
-    task_free(listen_task);
+        // Release held file descriptors
+        task_free(listen_task);
     }
     else
     {
@@ -1253,6 +1279,41 @@ pdownload_worker(void* arg)
 	task_download(pd_prop_node->t, pd_prop_node->tracker_task);
 
 	return NULL;
+}
+
+void
+dispatch_ppdownload(const task_t* tracker_task, const char** fnames, size_t fname_cnt)
+{
+    char** idxfnames = (char**)malloc(sizeof(char*) * fname_cnt);
+
+    size_t i;
+    for(i = 0; i < fname_cnt; i++)
+	{
+		idxfnames[i] = fname_w_ix("", fnames[i], ".idx");
+	}
+
+	dispatch_pdownload(tracker_task, (const char**)idxfnames, fname_cnt);
+
+    for(i = 0; i < fname_cnt; i++)
+	{
+		index_t index_obj;
+
+		read_index_file(fnames[i], &index_obj);
+
+		char** partfnames = (char**)malloc(sizeof(char*) * index_obj.header.ih_nlines);
+
+		size_t j;
+		for(j = 0; j < index_obj.header.ih_nlines; j++)
+		{
+            partfnames[j] = index_obj.i_lines[j].il_fname;
+		}
+
+		dispatch_pdownload(tracker_task, (const char**)partfnames, index_obj.header.ih_nlines);
+
+		reconstruct_file(fnames[i]);
+
+		free(partfnames);
+	}
 }
 
 void

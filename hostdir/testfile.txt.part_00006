@@ -1,0 +1,22 @@
+ing peers for 'cat1.jpg'
+* Connecting to 131.179.80.160:11114 to download 'cat1.jpg'
+* Saving result to 'cat1.jpg'
+* Downloaded 'cat1.jpg' was 44400 bytes long
+* Finding peers for 'cat2.jpg'
+* Connecting to 131.179.80.160:11114 to download 'cat2.jpg'
+* Saving result to 'cat2.jpg'
+* Downloaded 'cat2.jpg' was 41259 bytes long
+* Finding peers for 'cat3.jpg'
+* Connecting to 131.179.80.31:11114 to download 'cat3.jpg'
+* Saving result to 'cat3.jpg'
+* Downloaded 'cat3.jpg' was 34812 bytes long
+
+osppeer will then pause, waiting for other peers to upload files from it. If you wait long enough, you will see some additional messages, like this:
+
+* Got connection from 131.179.80.31:33916
+* Transferring file cat3.jpg
+* Upload of cat3.jpg complete
+* Got connection from 131.179.80.31:33917
+* Odd request CHECKUPLOAD cat3.jpg successful!
+
+The "good" tracker has a special additional feature, where our peers connect back to your peer and attempt to download files from it. If the download succeeds, and the file contents match the expected values, our peers inform you by connecting with a message like "CHECKUPLOAD cat3.jpg successful!". If there is a problem, you w

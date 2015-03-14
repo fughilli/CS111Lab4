@@ -1,0 +1,10 @@
+eb browser to turn in the project.
+Overview
+
+This lab concerns distributed computing and security via defensive programming.
+
+Distributed computing uses operating system interfaces to build complex systems from many interacting computers. Your Lab 4 code participates in a peer-to-peer (P2P) network, formed by connecting nodes that can perform both the roles of clients and servers. You're probably familiar with peer-to-peer networks used for downloading files, such as BitTorrent; we have designed a peer-to-peer system somewhat like BitTorrent, from which you can download some lolcats.
+
+Our peer-to-peer network consists of two kinds of nodes: trackers and peers. Trackers keep track of which peers are connected to the network; peers actually download files from each other. We have written a tracker and a functional peer. When you download lab4.tar.gz, our peer code is in osppeer.c. We also have five trackers running on our own server. They are:
+
+    131.179.80.139:11111 -- the normal tracker. Students' peers can connect to this tracker and serve files to each other. This tracker is "seeded" with a mixture of good and slow peers running on our ser

@@ -1,0 +1,24 @@
+ failure. Now the tracker will report this peer to other peers who want to download files.
+
+Here's a picture of this protocol.
+
+OSP2P Connection Protocol
+
+The peer then informs the tracker of the files it is willing to upload to others.
+
+    The peer registers each file with a "HAVE filename" RPC.
+    The tracker responds with a message indicating success or failure.
+
+When a peer wants to download a file from the network, it communicates with both the tracker and other peers.
+
+    The downloading peer asks the tracker which peers have the file with a "WANT filename" RPC.
+    The tracker responds with a message listing the available peers willing to serve that file.
+    The downloading peer picks an available peer from this set, and connects to that peer, sending it a "GET filename OSP2P" RPC.
+    The uploading peer responds to this RPC by sending the entire file.
+
+OSP2P Download Protocol
+
+Once the downloading peer has downloaded the entire file, it informs the tracker that it, too, has the file.
+
+    The downloading peer registers its newly downloaded file with a "HAVE filename" RPC.
+    The tracker responds with a message indicating success o

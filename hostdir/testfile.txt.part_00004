@@ -1,0 +1,13 @@
+r failure.
+
+What You Must Do
+
+At a high level, there are three parts to this lab.
+
+    The peer code that we hand out is sequential: it downloads from peers, and uploads to peers, one at a time. Since the network to any one peer is likely a bottleneck, sequential downloading has poor utilization. You are to make the peer behave in parallel: it should be able to download from peers, and upload to peers, more than one at a time.
+    The peer code that we hand out is not robust: communicating with an evil peer can cause your peer code to crash or hang forever. You are to fix the peer code to make it robust. This requires defensive programming.
+    The peer code that we hand out is good, i.e., not evil. You are to make your peer code optionally evil: if you start the peer with the -b option (b is for "bad"), it will try to confuse or crash any peers that attempt to download files from it.
+
+Lab 4 does not have explicitly marked exercises; you have more freedom to change the code however you think is necessary.
+
+This lab can be completed on any Unix-compatible machine, including the SEASnet Linux machines, the Linux lab machines, and Macintosh machi

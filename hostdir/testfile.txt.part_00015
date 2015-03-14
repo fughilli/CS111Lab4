@@ -1,0 +1,15 @@
+en worse, we would have no idea who sent us the bad piece, meaning we might connect to them again. What changes could we use to protect ourselves against this?
+
+As an additional part of this design project, you could also explore performance issues. What sort of downloading strategies might result in faster download times? Should some peers be favored over others? Design an algorithm that implements a strategy you think should would and explain why.
+
+When working on this lab, if you modify your client to support additional protocol commands, you should be aware that other clients will not likely not support these new commands. As such, you will need to test any implementation using a network of clients running your code.
+Access Control
+
+The peer is happy to serve other peers any data contained in its current directory. Fancier programs, such as real web servers, allow users to specify which files in a directory can be served. For example, this syntax tells Apache to refuse to serve the osppeer.c file:
+
+   <Files "osppeer.c">
+   Order allow,deny
+   Deny from all
+   </Files>
+
+This syntax would usually go in a file called .htaccess, in the direct

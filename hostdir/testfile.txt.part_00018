@@ -1,0 +1,13 @@
+ads "cat1.jpg" to Peer 2.
+    Peer 1 uploads "cat2.jpg" to Peer 3; Peer 2 uploads "cat1.jpg" to Peer 4.
+    Peer 1 uploads "cat3.jpg" to Peer 4; Peer 2 uploads "cat1.jpg" to Peer 5; Peer 3 uploads "cat2.jpg" to Peer 2.
+    Peer 1 uploads "cat3.jpg" to Peer 5; Peer 2 uploads "cat1.jpg" to Peer 3; Peer 3 uploads "cat2.jpg" to Peer 4; Peer 4 uploads "cat3.jpg" to Peer 2.
+    Peer 2 uploads "cat3.jpg" to Peer 3; Peer 4 uploads "cat2.jpg" to Peer 5.
+
+The download has completed pretty quickly, with all sorts of parallel downloads across peers -- but even better, no peer has uploaded more than 4 files!! This is 3 times better for Peer 1 than the naive approach.
+
+Your job in this design project is to design concrete algorithms by which a peer network can reduce any single peer's contribution to the network by spreading uploads across multiple peers. You should consider issues like misbehaving peers as well. Again, note that this requires a several (potentially significant) changes to the current design before you can begin investigating your design choice.
+ 
+lab4.txt · Last modified: 2011/03/05 15:51 by kohler
+ 
+Recent changes RSS feed Driven by Doku

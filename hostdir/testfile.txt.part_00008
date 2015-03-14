@@ -1,0 +1,8 @@
+attempting to crash it or monopolize its resources.
+
+Now, try connecting to the tracker and to a peer yourself with the telnet program. All the OSP2P RPCs use a text-based format which you can type yourself. Run "telnet read.cs.ucla.edu 11111" to connect to a tracker. Type HELP, then play around with some of the other commands. Type QUIT to quit the connection. Run "telnet read.cs.ucla.edu 11116" to connect to one of our (normal) peers. Type "GET about.txt OSP2P" to request a file. The peer should shut down the connection automatically after sending the file.
+Task 1: Parallel Uploads and Downloads
+
+The skeleton code that we hand out is a fully functioning OSP2P peer client, but all of its actions are performed serially. In particular, if multiple desired files are given on the command line, they are processed one at a time. Only after the client successfully downloads the first file (or fails for all peers sharing the file) does it attempt to download the second. Similarly, once the client begins accepting connections from peers, it processes them one at a time.
+
+Your first task is to change the code so that it can process multiple downloads i

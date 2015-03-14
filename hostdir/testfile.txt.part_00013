@@ -1,0 +1,14 @@
+e flag is set. Otherwise, your code should behave nicely. Also add a description of your attacks in the answers.txt file. Why are your attacks actually attacks?
+
+Good luck!!!
+Extra Credit Task: File Integrity
+
+Many of the evil peers' attacks are pretty easy to detect, but some are not so easy. In particular, how can your peer detect that an evil peer has sent a corrupted version of the file?
+
+The OSP2P system actually already supports a strategy for detecting corruption, called cryptographic hash functions or checksums. When our clients connect to the tracker, they not only register interest in the file, they also tell the tracker the MD5 checksum of the file's data (calculated with md5_init, md5_append, and md5_finish_text(...,1); these functions are defined in md5.h). Another peer can compare this checksum with the checksum of the file they download.
+
+Your job in this extra credit task is to detect corruption (intentional or not) using the trackers' checksum support. We aren't saying much more about how to do this; poke around on the tracker using telnet to figure out how checksum support works.
+Design Problems
+
+Design problem guidelines
+Dow

@@ -1,0 +1,5 @@
+nloading From Multiple Peers
+
+Currently, our client downloads a file from one peer at a time. Although we benefit from concurrency by allowing multiple files to be downloaded at the same time, we are not taking advantage of the fact that multiple peers are serving the same file. If we are downloading a large file, we can speed up the process by downloading it in parts from multiple peers at the same time. Downloading and sharing files in parts is the fundamental premise behind peer-to-peer networks such as Bittorrent. For this design problem consider how you might download a file from multiple peers at the same time. Our protocol currently only supports getting a file in its entirety, so you will need to suggest how we should augment the protocol to support this new behavior. You will also need to consider other factors such as how might we decide to break a file into parts?
+
+Another main consideration is file integrity. Given the number of potentially adversarial peers in ours system, there's a good chance we might receive a corrupted part. Our checksums are valid for the entire file, so we would have to wait until the last piece to check! Ev

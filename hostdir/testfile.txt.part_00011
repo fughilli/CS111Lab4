@@ -1,0 +1,11 @@
+e that could crash your client with a segmentation fault -- or, worse, give an attacker control of your computer! While a buffer overflow bug would not happen in a safe language like Java, other security bugs can happen in any language. It is important for you to understand the need for careful programming in any network environment like this.
+
+Your job is to solve the following problems:
+
+    The peer should not serve files outside the current directory.
+    Find and fix any buffer overrun bugs. List conditions that would have triggered the bugs in your answers.txt file.
+    Otherwise improve the peer's robustness. Use make run-bad to test your client; our "bad" tracker tries to abuse connecting peers in a variety of interesting ways. (It chooses random attack strategies each time.) You should be able to run make run-bad indefinitely, without eventually running out of disk space or memory or file descriptors. Tell us what robustness problems you fixed in your answers.txt file.
+
+If you find other problems, feel free to solve them too, and tell us about them.
+
+In general, you may assume that only peers will attack you; the tracker is trusted. H

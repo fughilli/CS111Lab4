@@ -1,0 +1,14 @@
+nloading multiple files at once, it should not take 90-100% of the CPU. You can use the top program to see how much CPU time is being used by osppeer.
+Task 2: Security and Defensive Programming
+
+Writing networked programs is difficult not just because of the need for speed, but also because it is very important to avoid security holes. These are programming mistakes that might allow an attacker to crash the networked program, cause it to misbehave, trick it into doing something it shouldn't, or even gain access to the machine.
+
+Your job is to fix our peer's security holes and make it robust against as many attacks and network problems as you can imagine.
+
+Here's what the peer should do: its intended specification.
+
+    The peer should serve files located in its current directory to requesting peers.
+    The peer should not serve files located in any other directory.
+    Other peers should not be able to monopolize the peer's resources. For example, another peer should not be able to fill up this peer's disk, or fill up its file descriptor table with non-functioning connections.
+
+Furthermore, there is at least one buffer overflow bug in the cod

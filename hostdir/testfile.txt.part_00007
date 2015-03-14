@@ -1,0 +1,11 @@
+ill see a message like "CHECKUPLOAD cat3.jpg FAILED: empty file", or something else. This only works on the good tracker.
+
+Press Control-C to quit osppeer. To run against different trackers, try make run (normal tracker), make run-slow, and make run-bad.
+
+You can also run ./osppeer yourself from the command line. Here's what its arguments mean.
+
+    -dtest : Run in the test directory. The peer will register all files located in the test directory with the tracker, and download files into the test directory. You should generally run with the -dtest argument.
+    -t11112 : The -t argument specifies the tracker IP address and/or port. You will generally just specify ports; 11111 is the normal tracker, 11112 is the good tracker, 11113 is the slow tracker, and 11114 is the evil tracker. The default tracker IP address is 131.179.80.139.
+    cat1.jpg cat2.jpg cat3.jpg : These are the names of files that ./osppeer should try to download. If you give no filename arguments, ./osppeer will not download any files.
+
+If you run make run-slow, you will see what we mean by "slow peers". And if you run make run-bad, our peers will do their worst to your peer, 

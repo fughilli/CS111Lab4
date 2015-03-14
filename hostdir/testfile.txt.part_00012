@@ -1,0 +1,6 @@
+owever, there is one bug in our handout code's tracker communication: if many, many peers are logged in at once, then our peer will be unable to download anything, because communications with the tracker will get confused. You should find and fix this bug as well. To test, run your osppeer program against the popular tracker. A message like tracker connection closed prematurely! indicates that you haven't fixed the bug.
+Task 3: Attack!!!
+
+Your final task is to be the bad guy. Find at least two ways that a malicious peer client could attack the client implemented by the skeleton code (and potentially other students' clients). The attack may cause the client to crash or may simply cause it to fail to respond to legitimate requests or run out of resources (denial of service). Your peer should go into "malicious mode" when the evil_mode global variable is nonzero. It may attack only those peers that actively try to download its files ("uploader attacks"), or, even better, seek out new peers to attack by connecting to them ("downloader attacks")!
+
+Add these security exploits to your client code. These attacks should only be active when the evil_mod

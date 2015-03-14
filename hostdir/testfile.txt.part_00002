@@ -1,0 +1,15 @@
+vers.
+    131.179.80.139:11112 -- the good tracker. Our own peers are connected to this tracker.
+    131.179.80.139:11113 -- the slow tracker. Slow peers, which serve files slowly, are running on this tracker. You can use this tracker to verify that your peer downloads files in parallel.
+    131.179.80.139:11114 -- the bad tracker. Bad peers, which attack other peers that attempt to connect, are running on this tracker.
+    131.179.80.139:11115 -- the popular tracker. Our own peers are connected to this tracker, plus a bunch of fake peers, making the tracker look very popular.
+
+Peer-to-peer communication in the OSP2P system is built from a series of remote procedure calls (RPCs). These RPCs are formatted as normal text, formatted somewhat like other Internet protocols (HTTP, FTP, SMTP, and so forth). So you can use the telnet program to try out the RPCs yourself!
+The OSP2P Protocol
+
+A peer logs in to a tracker as follows.
+
+    The peer connects to the tracker machine.
+    The tracker responds with a greeting message.
+    The peer registers its IP address and port with an "ADDR" RPC.
+    The tracker responds with a message indicating success or

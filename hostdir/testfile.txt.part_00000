@@ -1,0 +1,32 @@
+
+You are expected to understand this. CS 111 Operating Systems Principles, Winter 2011
+You are here: CS111: [[lab4]]
+ 
+ 
+ 
+Table of Contents
+
+    Lab 4
+        Handin Procedure
+        Overview
+            The OSP2P Protocol
+        What You Must Do
+        Investigating the OSP2P Protocol
+        Task 1: Parallel Uploads and Downloads
+        Task 2: Security and Defensive Programming
+        Task 3: Attack!!!
+        Extra Credit Task: File Integrity
+        Design Problems
+            Downloading From Multiple Peers
+            Access Control
+            Transmitting Encrypted Files
+            Minimizing Bandwidth When Sharing
+
+Lab 4
+Handin Procedure
+
+When you are finished, edit the answers.txt file and add your name(s) and email address(es), student ID(s), any challenge problems you may have done.
+
+ALSO REMEMBER TO WRITE THE INFORMATION REQUIRED BY TASKS 2 AND 3, INCLUDING WHICH ROBUSTNESS PROBLEMS YOU FIXED, AND HOW YOU MADE YOUR PEER EVIL!
+
+Also include any other information you'd like us to have. Then run make tarball, which will generate a file lab4-yourusername.tar.gz inside the lab4 directory. Upload this file to CourseWeb using a w
