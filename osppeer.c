@@ -1298,7 +1298,7 @@ dispatch_ppdownload(const task_t* tracker_task, const char** fnames, size_t fnam
 	{
 		index_t index_obj;
 
-		read_index_file(fnames[i], &index_obj);
+		read_index_file(idxfnames[i], &index_obj);
 
 		char** partfnames = (char**)malloc(sizeof(char*) * index_obj.header.ih_nlines);
 
