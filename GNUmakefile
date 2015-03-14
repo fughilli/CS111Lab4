@@ -47,8 +47,24 @@ run-popular: osppeer
 	@echo + ./osppeer -dtest -t164.67.100.231:13000 cat1.jpg cat2.jpg cat3.jpg
 	@./osppeer -dtest -t164.67.100.231:13000 cat1.jpg cat2.jpg cat3.jpg
 
+run-parallel: osppeer
+	@echo cleaning up...
+	@./kill-seeders.sh
+	@-/bin/rm hostdir/osppeer
+	@-/bin/rm *.idx
+	@-/bin/rm rc-*
+	@-/bin/rm *.part_*
+	@cp osppeer hostdir/
+	@echo + Starting seeders
+	@./pd-test.sh
+	@echo + Wait for seeder init...
+	@sleep 2
+	@echo + ./osppeer -p testfile.txt
+	@./osppeer -p testfile.txt
+
 clean:
-	-rm -f *.o *~ osptracker osptracker.cc osppeer
+	@-rm -f *.o *~ osptracker osptracker.cc osppeer hostdir/osppeer *.idx rc-* *.part_*
+	@./kill-seeders.sh
 
 distclean: clean
 
